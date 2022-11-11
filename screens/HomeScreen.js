@@ -8,13 +8,14 @@ import {
   FlatList,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
 } from "react-native";
 import React from "react";
 import { useLayoutEffect, useState, useEffect, useRef } from "react";
 import { FontAwesome } from "@expo/vector-icons";
 import { Octicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-
+import { Feather } from "@expo/vector-icons";
 import { AntDesign } from "@expo/vector-icons";
 import { EvilIcons } from "@expo/vector-icons";
 import {
@@ -42,6 +43,7 @@ import {
   getTasks,
   getActive,
   checkadminUsers,
+  getCompanyID,
 } from "../firebase";
 
 import { NavigationContainer, DrawerActions } from "@react-navigation/native";
@@ -75,10 +77,15 @@ import {
   setUserSubscriptionStatus,
   setCompanySubscriptionStatus,
   selectCompanySubscriptionStatus,
+  selectCompanyID,
   setTrial,
 } from "../slices/globalSlice";
 
 import IconButton from "../components/IconButton";
+import InputBox from "../components/InputBox";
+import TeamSearch from "../components/TeamSearch";
+import OutlineButtonWithIcon from "../components/OutlineButtonWithIcon";
+import AddATeam from "../components/AddATeam";
 
 const HomeScreen = () => {
   const [todoHight, setTodoHeight] = useState();
@@ -94,6 +101,7 @@ const HomeScreen = () => {
   const [refresh, setRefresh] = useState(0);
   const [deleteToDo, setDeleteToDo] = useState(false);
   var currentDate = new Date();
+  const companyID = useSelector(selectCompanyID);
 
   const [todaysHours, setTodaysHours] = useState(null);
 
@@ -120,8 +128,11 @@ const HomeScreen = () => {
   const userSubscriptionStatus = useSelector(selectUserSubscriptionStatus);
   const dateInMM = Date.now();
   const isMounted = useRef(false);
-  const [team, setTeam] = useState(null); //team array
-
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [teamSearch, setTeamSearch] = useState(null);
+  const [showTeamSearch, setShowTeamSearch] = useState(false);
+  const [showAddATeam, setShowAddATeam] = useState(null);
+  const [teamID, setTeamID] = useState(null);
   const companySubscriptionStatus = useSelector(
     selectCompanySubscriptionStatus
   );
@@ -156,6 +167,14 @@ const HomeScreen = () => {
   const selectTeam = (team) => {
     setTeam(team);
   };
+  useEffect(() => {
+    if (company) {
+      getCompanyID({
+        companyId: companyID,
+        dispatch: dispatch,
+      });
+    }
+  }, [company, companyID]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -163,7 +182,7 @@ const HomeScreen = () => {
     return () => {
       isMounted.current = false;
     };
-  }, [company]);
+  }, [company, companyID]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -171,7 +190,7 @@ const HomeScreen = () => {
     return () => {
       isMounted.current = false;
     };
-  }, []);
+  }, [companyID]);
   // const getstatus = () => {};
   // if (company != null) {
   //   onSnapshot(doc(db, "companys", company), (doc) => {
@@ -205,16 +224,17 @@ const HomeScreen = () => {
   // }, [isActive, company]);
 
   useEffect(() => {
-    if (company !== null) {
-      getTasks({ setTasks: setTasks, company: company });
+    if (companyID !== null) {
+      getTasks({
+        setTasks: setTasks,
+        companyID: companyID,
+        teamID: teamID,
+        team: selectedTeam,
+      });
     } else {
       setTasks("null");
     }
-
-    // return () => {
-    //   getData();
-    // };
-  }, [company, refresh]);
+  }, [company, refresh, companyID]);
 
   if (importance > 10) {
     Alert.alert(
@@ -252,14 +272,19 @@ const HomeScreen = () => {
   useEffect(() => {
     if (company !== null) {
       try {
-        checkadminUsers({ company: company });
+        checkadminUsers({
+          company: company,
+          companyID: companyID,
+          dispatchAdminUsers: dispatch,
+          setAdminUsers: setAdminUsers,
+        });
       } catch (error) {
         console.log(error);
       }
     } else {
       return null;
     }
-  }, [company, refresh]);
+  }, [company, companyID, refresh]);
   const addtodo = () => {
     if (addButton == true) {
       return (
@@ -278,50 +303,160 @@ const HomeScreen = () => {
             shadowOpacity: 0.44,
             shadowRadius: 10.32,
             alignItems: "center",
+            marginTop: 20,
             // flex: 1,
           }}
         >
-          <TextInput
-            style={styles.inputTitle}
-            placeholder="Title"
-            type="name"
-            onChangeText={setTitle}
+          <View
+            style={{
+              flex: 0.1,
+              width: "100%",
+              paddingHorizontal: 60,
+              marginTop: 10,
+
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                flex: 0.35,
+                flexDirection: "row",
+              }}
+            >
+              <OutlineButtonWithIcon
+                buttonValue={showAddATeam}
+                onPress={() => {
+                  setShowAddATeam(!showAddATeam);
+                }}
+                text={"Add Team"}
+                Icon={<AntDesign name="addusergroup" size={24} color="black" />}
+              />
+            </View>
+            <View
+              style={{
+                flex: 0.35,
+                flexDirection: "row",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: 30 }}>Current Team: {selectedTeam}</Text>
+            </View>
+            <View
+              style={{
+                flex: 0.35,
+                justifyContent: "flex-end",
+                flexDirection: "row",
+              }}
+            >
+              <OutlineButtonWithIcon
+                buttonValue={showTeamSearch}
+                onPress={() => {
+                  setShowTeamSearch(!showTeamSearch);
+                }}
+                text={"Select Team"}
+                Icon={<Feather name="users" size={24} color="black" />}
+              />
+            </View>
+          </View>
+          {showTeamSearch &&
+            // hide add a team
+            (setShowAddATeam(false),
+            (
+              <TeamSearch
+                teamSearch={teamSearch}
+                companyID={companyID}
+                setTeamSearch={setTeamSearch}
+                setSelectedTeam={setSelectedTeam}
+                setSelectedTeamID={setTeamID}
+              />
+            ))}
+          {showAddATeam &&
+            // hide team search
+            (setShowTeamSearch(false),
+            (
+              <AddATeam
+                companyID={companyID}
+                company={company}
+                setTeamID={setTeamID}
+                setTeamName={setSelectedTeam}
+                teamName={selectedTeam}
+              />
+            ))}
+
+          <InputBox
+            placeholder={"Title"}
             value={title}
-          ></TextInput>
+            onChangeText={(text) => {
+              setTitle(text);
+            }}
+            width={Dimensions.get("screen").width / 1.5}
+            color="#7B3AF5"
+          />
 
-          <TextInput
-            style={styles.inputTitle}
+          <InputBox
             placeholder="Task Description"
-            type="description"
-            onChangeText={setDescription}
             value={description}
-          ></TextInput>
+            onChangeText={(text) => {
+              setDescription(text);
+            }}
+            color="#7B3AF5"
+            width={Dimensions.get("screen").width / 1.5}
+          />
 
-          <TextInput
-            style={styles.inputTitle}
-            placeholder="Importance (Ex:1-10)"
-            type="importance"
+          <InputBox
+            placeholder={"Importance (Ex:1-10)"}
+            onChangeText={(text) => {
+              setImportance(text);
+            }}
+            width={Dimensions.get("screen").width / 1.5}
             value={importance}
-            onChangeText={setImportance}
-          ></TextInput>
+            color="#7B3AF5"
+          />
 
           <MainButton
             text={"Add Task"}
             onPress={() => {
-              addNewTask({
-                description: description,
-                title: title,
-                importance: importance,
-                todaysHours: todaysHours,
-                todaysMin: todaysMin,
-                company: company,
-                fulldate: fulldate,
-                randomnumberString: randomnumberString,
-              });
-              setDeleteToDo(false);
-              setImportance(null);
-              setTitle(null);
-              setDescription(null);
+              if (
+                teamID == null ||
+                teamID == undefined ||
+                teamID == "" ||
+                selectedTeam == null ||
+                selectedTeam == undefined ||
+                selectedTeam == ""
+              ) {
+                alert("Please select a team");
+              } else {
+                if (
+                  title == "" ||
+                  title == null ||
+                  description == "" ||
+                  description == null ||
+                  importance == "" ||
+                  importance == null
+                ) {
+                  alert("Please fill out all fields");
+                } else {
+                  addNewTask({
+                    description: description,
+                    title: title,
+                    importance: importance,
+                    todaysHours: todaysHours,
+                    todaysMin: todaysMin,
+                    company: company,
+                    companyID: companyID,
+                    fulldate: fulldate,
+                    randomnumberString: randomnumberString,
+                    teamID: teamID,
+                    team: selectedTeam,
+                  });
+                  setDeleteToDo(false);
+                  setImportance(null);
+                  setTitle(null);
+                  setDescription(null);
+                }
+              }
             }}
             buttonWidth={300}
           />
@@ -332,205 +467,225 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={{ flex: 1, alignItems: "center", alignContent: "center" }}>
-        <View style={{ flex: 0.1, flexDirection: "row" }}>
-          <View
-            style={{
-              flex: 0.1,
-              alignContent: "center",
-              justifyContent: "center",
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                if (refresh == 0) {
-                  setRefresh(1);
-                }
-                if (refresh == 1) {
-                  setRefresh(0);
-                }
-              }}
-            >
-              <EvilIcons name="refresh" size={35} color="black" />
-            </TouchableOpacity>
-          </View>
-          <View
-            style={{
-              flex: 0.5,
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1, width: "100%" }}
+      >
+        <FlatList
+          data={[true]}
+          style={{ flex: 1, width: "100%" }}
+          renderItem={({ item }) => {
+            return (
+              <View
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  alignContent: "center",
+                }}
+              >
+                <View style={{ flex: 0.1, flexDirection: "row" }}>
+                  <View
+                    style={{
+                      flex: 0.1,
+                      alignContent: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (refresh == 0) {
+                          setRefresh(1);
+                        }
+                        if (refresh == 1) {
+                          setRefresh(0);
+                        }
+                      }}
+                    >
+                      <EvilIcons name="refresh" size={35} color="black" />
+                    </TouchableOpacity>
+                  </View>
+                  <View
+                    style={{
+                      flex: 0.5,
 
-              justifyContent: "center",
-            }}
-          >
-            <View>
-              <Text style={styles.toDo}>To-Do</Text>
-            </View>
-            <View style={{ justifyContent: "center", alignItems: "center" }}>
-              <LineBorder
-                width={Dimensions.get("window").width / 2.5}
-                color={"#7B3AF5"}
-              />
-            </View>
-          </View>
-          <View
-            style={{
-              flex: 0.1,
+                      justifyContent: "center",
+                    }}
+                  >
+                    <View>
+                      <Text style={styles.toDo}>To-Do</Text>
+                    </View>
+                    <View
+                      style={{ justifyContent: "center", alignItems: "center" }}
+                    >
+                      <LineBorder
+                        width={Dimensions.get("window").width / 2.5}
+                        color={"#7B3AF5"}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    style={{
+                      flex: 0.1,
 
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                setDeleteToDo(false);
-                if (addButton == false) {
-                  setAddButton(true);
-                } else {
-                  setAddButton(false);
-                }
-              }}
-            >
-              <AntDesign name="plus" size={24} color="black" />
-            </TouchableOpacity>
-          </View>
-        </View>
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        setDeleteToDo(false);
+                        if (addButton == false) {
+                          setAddButton(true);
+                        } else {
+                          setAddButton(false);
+                        }
+                      }}
+                    >
+                      <AntDesign name="plus" size={24} color="black" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
 
-        <View
-          style={{ flex: 1, flexDirection: "column", alignContent: "center" }}
-        >
-          <View style={{ flexDirection: "column", flex: 1 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                // justifyContent: "center",
-              }}
-            >
-              {addtodo()}
-            </View>
-            <FlatList
-              style={{ flex: 1 }}
-              data={tasks}
-              renderItem={({ item, circleColor }) => {
-                // setImportance2(item.importance);
-                const importanceconst = item.importance;
-                if (importanceconst == 10) {
-                  circleColor = "#FF0000";
-                }
-                if (importanceconst == 9) {
-                  circleColor = "#FF5E00";
-                }
-                if (importanceconst == 8) {
-                  circleColor = "#FF8800";
-                }
-                if (importanceconst == 7) {
-                  circleColor = "#FFA600";
-                }
-                if (importanceconst == 6) {
-                  circleColor = "#FFC400";
-                }
-                if (importanceconst == 5) {
-                  circleColor = "#FFFB00";
-                }
-                if (importanceconst == 4) {
-                  circleColor = "#E5FF00";
-                }
-                if (importanceconst == 3) {
-                  circleColor = "#C3FF00";
-                }
-                if (importanceconst == 2) {
-                  circleColor = "#A6FF00";
-                }
-                if (importanceconst == 1) {
-                  circleColor = "#48FF00";
-                }
+                <View
+                  style={{
+                    flex: 1,
+                    flexDirection: "column",
+                    alignContent: "center",
+                  }}
+                >
+                  <View style={{ flexDirection: "column", flex: 1 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                      }}
+                    >
+                      {addtodo()}
+                    </View>
 
-                const deletetask = () => {
-                  if (deleteToDo == true) {
-                    return (
-                      <View style={{ marginVertical: 20 }}>
-                        <TouchableOpacity
-                          onLongPress={() => {
-                            if (deleteToDo == false) {
-                              setDeleteToDo(true);
-                            } else {
-                              setDeleteToDo(false);
-                            }
-                          }}
-                          onPress={() => {
-                            navigation.navigate("ToDo Screen");
-                            dispatch(setTaskID(item.taskID));
-                          }}
-                        >
-                          <View style={styles.taskList}>
-                            <View style={{ flex: 1 }}>
-                              <View
-                                style={{
-                                  flex: 1,
-                                  alignItems: "center",
-                                  // alignContent: "center",
-                                  justifyContent: "center",
-                                  flexDirection: "row",
-                                }}
-                              >
-                                <View
-                                  style={{
-                                    flex: 0.3,
-                                    justifyContent: "center",
-                                    alignContent: "center",
-                                  }}
-                                >
-                                  <Text
-                                    style={{
-                                      justifyContent: "center",
-                                      marginTop: 5,
-                                    }}
-                                  >
-                                    {item.lastUpdateDate}
-                                    {"\n"}
-                                    {item.lastUpdateTime}
-                                  </Text>
-                                </View>
-                                <View
-                                  style={{
-                                    flex: 0.3,
-                                    // backgroundColor: "blue",
-                                    alignItems: "center",
-                                  }}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.taskTitle,
-                                      windowWidth < 325 &&
-                                        styles.taskTitleSmall,
-                                    ]}
-                                  >
-                                    {item.name}
-                                  </Text>
-                                </View>
+                    <FlatList
+                      style={{ flex: 1 }}
+                      data={tasks}
+                      renderItem={({ item, circleColor }) => {
+                        const importanceconst = item.importance;
+                        if (importanceconst == 10) {
+                          circleColor = "#FF0000";
+                        }
+                        if (importanceconst == 9) {
+                          circleColor = "#FF5E00";
+                        }
+                        if (importanceconst == 8) {
+                          circleColor = "#FF8800";
+                        }
+                        if (importanceconst == 7) {
+                          circleColor = "#FFA600";
+                        }
+                        if (importanceconst == 6) {
+                          circleColor = "#FFC400";
+                        }
+                        if (importanceconst == 5) {
+                          circleColor = "#FFFB00";
+                        }
+                        if (importanceconst == 4) {
+                          circleColor = "#E5FF00";
+                        }
+                        if (importanceconst == 3) {
+                          circleColor = "#C3FF00";
+                        }
+                        if (importanceconst == 2) {
+                          circleColor = "#A6FF00";
+                        }
+                        if (importanceconst == 1) {
+                          circleColor = "#48FF00";
+                        }
 
-                                <View
-                                  style={{
-                                    flex: 0.3,
-                                    justifyContent: "center",
-                                    marginTop: 12,
-                                    alignItems: "flex-end",
-                                  }}
-                                >
-                                  <IconButton
-                                    buttonWidth={50}
-                                    color={"#FF0000"}
-                                    icon={
-                                      <FontAwesome
-                                        name="trash-o"
-                                        size={24}
-                                        color="black"
-                                      />
+                        const deletetask = () => {
+                          if (deleteToDo == true) {
+                            return (
+                              <View style={{ marginVertical: 20 }}>
+                                <TouchableOpacity
+                                  onLongPress={() => {
+                                    if (deleteToDo == false) {
+                                      setDeleteToDo(true);
+                                    } else {
+                                      setDeleteToDo(false);
                                     }
-                                    onPress={() => {
-                                      deletetask({ task: item.taskID });
-                                    }}
-                                  ></IconButton>
-                                  {/* <View
+                                  }}
+                                  onPress={() => {
+                                    navigation.navigate("ToDo Screen");
+                                    dispatch(setTaskID(item.taskID));
+                                  }}
+                                >
+                                  <View style={styles.taskList}>
+                                    <View style={{ flex: 1 }}>
+                                      <View
+                                        style={{
+                                          flex: 1,
+                                          alignItems: "center",
+                                          // alignContent: "center",
+                                          justifyContent: "center",
+                                          flexDirection: "row",
+                                        }}
+                                      >
+                                        <View
+                                          style={{
+                                            flex: 0.3,
+                                            justifyContent: "center",
+                                            alignContent: "center",
+                                          }}
+                                        >
+                                          <Text
+                                            style={{
+                                              justifyContent: "center",
+                                              marginTop: 5,
+                                            }}
+                                          >
+                                            {item.lastUpdateDate}
+                                            {"\n"}
+                                            {item.lastUpdateTime}
+                                          </Text>
+                                        </View>
+                                        <View
+                                          style={{
+                                            flex: 0.3,
+                                            // backgroundColor: "blue",
+                                            alignItems: "center",
+                                          }}
+                                        >
+                                          <Text
+                                            style={[
+                                              styles.taskTitle,
+                                              windowWidth < 325 &&
+                                                styles.taskTitleSmall,
+                                            ]}
+                                          >
+                                            {item.name}
+                                          </Text>
+                                        </View>
+
+                                        <View
+                                          style={{
+                                            flex: 0.3,
+                                            justifyContent: "center",
+                                            marginTop: 12,
+                                            alignItems: "flex-end",
+                                          }}
+                                        >
+                                          <IconButton
+                                            buttonWidth={50}
+                                            color={"#FF0000"}
+                                            icon={
+                                              <FontAwesome
+                                                name="trash-o"
+                                                size={24}
+                                                color="black"
+                                              />
+                                            }
+                                            onPress={() => {
+                                              deletetask({ task: item.taskID });
+                                            }}
+                                          ></IconButton>
+                                          {/* <View
                                     style={{
                                       borderRadius: 80,
                                       backgroundColor: circleColor,
@@ -538,122 +693,131 @@ const HomeScreen = () => {
                                       height: 20,
                                     }}
                                   ></View> */}
-                                </View>
+                                        </View>
+                                      </View>
+                                    </View>
+
+                                    <Text style={styles.taskDescription}>
+                                      {item.description}
+                                    </Text>
+                                  </View>
+                                </TouchableOpacity>
                               </View>
-                            </View>
-
-                            <Text style={styles.taskDescription}>
-                              {item.description}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  } else {
-                    return (
-                      <View style={{ marginVertical: 20 }}>
-                        <TouchableOpacity
-                          onLongPress={() => {
-                            if (deleteToDo == false) {
-                              setDeleteToDo(true);
-                            } else {
-                              setDeleteToDo(false);
-                            }
-                          }}
-                          onPress={() => {
-                            navigation.navigate("ToDo Screen");
-                            dispatch(setTaskID(item.taskID));
-                          }}
-                        >
-                          <View style={styles.taskList}>
-                            <View style={{ flex: 1 }}>
-                              <View
-                                style={{
-                                  flex: 1,
-                                  alignItems: "center",
-                                  // alignContent: "center",
-                                  justifyContent: "center",
-                                  flexDirection: "row",
-                                }}
-                              >
-                                <View
-                                  style={{
-                                    flex: 0.3,
-                                    justifyContent: "center",
-                                    alignContent: "center",
+                            );
+                          } else {
+                            return (
+                              <View style={{ marginVertical: 20 }}>
+                                <TouchableOpacity
+                                  onLongPress={() => {
+                                    if (deleteToDo == false) {
+                                      setDeleteToDo(true);
+                                    } else {
+                                      setDeleteToDo(false);
+                                    }
+                                  }}
+                                  onPress={() => {
+                                    navigation.navigate("ToDo Screen");
+                                    dispatch(setTaskID(item.taskID));
                                   }}
                                 >
-                                  <Text
-                                    style={{
-                                      justifyContent: "center",
-                                      marginTop: 5,
-                                    }}
-                                  >
-                                    {item.lastUpdateDate}
-                                    {"\n"}
-                                    {item.lastUpdateTime}
-                                  </Text>
-                                </View>
-                                <View
-                                  style={{
-                                    flex: 0.3,
-                                    // backgroundColor: "blue",
-                                    alignItems: "center",
-                                  }}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.taskTitle,
-                                      windowWidth < 325 &&
-                                        styles.taskTitleSmall,
-                                    ]}
-                                  >
-                                    {item.name}
-                                  </Text>
-                                </View>
+                                  <View style={styles.taskList}>
+                                    <View style={{ flex: 1 }}>
+                                      <View
+                                        style={{
+                                          flex: 1,
+                                          alignItems: "center",
+                                          // alignContent: "center",
+                                          justifyContent: "center",
+                                          flexDirection: "row",
+                                        }}
+                                      >
+                                        <View
+                                          style={{
+                                            flex: 0.3,
+                                            justifyContent: "center",
+                                            alignContent: "center",
+                                          }}
+                                        >
+                                          <Text
+                                            style={{
+                                              justifyContent: "center",
+                                              marginTop: 5,
+                                            }}
+                                          >
+                                            {item.lastUpdateDate}
+                                            {"\n"}
+                                            {item.lastUpdateTime}
+                                          </Text>
+                                        </View>
+                                        <View
+                                          style={{
+                                            flex: 0.3,
+                                            // backgroundColor: "blue",
+                                            alignItems: "center",
+                                          }}
+                                        >
+                                          <Text
+                                            style={[
+                                              styles.taskTitle,
+                                              windowWidth < 325 &&
+                                                styles.taskTitleSmall,
+                                            ]}
+                                          >
+                                            {item.name}
+                                          </Text>
+                                        </View>
 
-                                <View
-                                  style={{
-                                    flex: 0.3,
+                                        <View
+                                          style={{
+                                            flex: 0.3,
 
-                                    alignItems: "flex-end",
-                                  }}
-                                >
-                                  <View
-                                    style={{
-                                      borderRadius: 80,
-                                      backgroundColor: circleColor,
-                                      width: 20,
-                                      height: 20,
-                                      overflow: "hidden",
-                                    }}
-                                  ></View>
-                                </View>
+                                            alignItems: "flex-end",
+                                          }}
+                                        >
+                                          <View
+                                            style={{
+                                              borderRadius: 80,
+                                              backgroundColor: circleColor,
+                                              width: 20,
+                                              height: 20,
+                                              overflow: "hidden",
+                                            }}
+                                          ></View>
+                                        </View>
+                                      </View>
+                                    </View>
+
+                                    <Text style={styles.taskDescription}>
+                                      {item.description}
+                                    </Text>
+                                  </View>
+                                </TouchableOpacity>
                               </View>
-                            </View>
+                            );
+                          }
+                        };
 
-                            <Text style={styles.taskDescription}>
-                              {item.description}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  }
-                };
+                        return <View style={{ flex: 1 }}>{deletetask()}</View>;
 
-                return <View style={{ flex: 1 }}>{deletetask()}</View>;
-
-                //export default importanceconst
-              }}
-              key={(item, index) => index}
-              keyExtractor={(item, index) => index}
-              // keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-            ></FlatList>
-          </View>
-        </View>
-      </View>
+                        //export default importanceconst
+                      }}
+                      key={(item, index) => index}
+                      keyExtractor={(item, index) => index}
+                      listKey={1}
+                      // keyExtractor={(item) => item.id}
+                      showsVerticalScrollIndicator={false}
+                    ></FlatList>
+                  </View>
+                </View>
+              </View>
+            );
+          }}
+          key={(item, index) => index}
+          keyExtractor={(item, index) => index}
+          listKey={1}
+          showsVerticalScrollIndicator={false}
+        ></FlatList>
+      </KeyboardAvoidingView>
     </View>
   );
 };

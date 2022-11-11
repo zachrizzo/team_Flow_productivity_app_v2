@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "team_Flow_productivity_app_v2",
-    "slug": "team_Flow_productivity_app_v2",
-    "version": "1.0.0",
+    "name": "Flow Team",
+    "slug": "FlowTeam",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -17,12 +17,24 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zachrizzo.FlowTeam",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need to know your current location to find out how far you are from work , so you can clock-In for work. Do you allow us to use location service on this device?"
+      }
+      
     },
     "android": {
+      "package": "com.zachrizzo.FlowTeam",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
+      },
+      "config":{
+        "googleMaps": {
+          "apiKey": "AIzaSyCF5dSfMivH0YxB6PMQlZBFAAhjnlkQ96o"
+        }
       }
     },
     "web": {
